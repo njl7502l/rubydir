@@ -55,12 +55,6 @@ end
 class << graph = mwin.subwin(graph_size[:y], graph_size[:x], graph_origin[:y], graph_origin[:x])
   def myInit
     box('|', '-', '+')
-    setpos(1, 1)
-    attron(Curses.color_pair(1))
-    attron(Curses::A_BOLD)
-    addstr('+')
-    attroff(Curses::A_BOLD)
-    attroff(Curses.color_pair(1))
   end
 
   def addPoint(x, y, distance)
@@ -72,6 +66,13 @@ class << graph = mwin.subwin(graph_size[:y], graph_size[:x], graph_origin[:y], g
     attron(get_color(distance))
     addstr('.')
     attroff(get_color(distance))
+
+    setpos(1, 1)
+    attron(Curses.color_pair(1))
+    attron(Curses::A_BOLD)
+    addstr('+')
+    attroff(Curses::A_BOLD)
+    attroff(Curses.color_pair(1))
   end
 
   private
