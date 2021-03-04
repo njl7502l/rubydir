@@ -1,15 +1,17 @@
 require 'curses'
 
-class << mwin = Curses.init_screen
+mwin = Curses.init_screen
+class << mwin
   def myInit
     box('|', '-', '+')
 
     Curses.start_color
     Curses.init_pair(1, Curses::COLOR_RED, Curses::COLOR_BLACK)
     Curses.init_pair(2, Curses::COLOR_GREEN, Curses::COLOR_BLACK)
+    Curses.init_pair(3, Curses::COLOR_BLUE, Curses::COLOR_BLACK)
+    Curses.init_pair(4, Curses::COLOR_YELLOW, Curses::COLOR_BLACK)
   end
 end
-mwin.myInit
 
 body_size = { y: Curses.lines - 6, x: Curses.cols }
 body_origin = { y: 3, x: 0 }
@@ -119,49 +121,93 @@ end
 
 def show_done_dialog(mwin, calculated_pi)
   doneMessage = "DONE!!! PI is #{format('%#.010g', calculated_pi)}!!"
+  continueMessage = 'continue?'
+  exitMessage = 'exit'
 
-  dialog = mwin.subwin(5, doneMessage.length + 6, (Curses.lines / 2) - 2, (Curses.cols / 2) - ((doneMessage.length + 6) / 2))
+  dialog = mwin.subwin(7, doneMessage.length + 6, (Curses.lines / 2) - 3, (Curses.cols / 2) - ((doneMessage.length + 6) / 2))
   dialog.box('#', '#', '#')
-  dialog.setpos(2, 3)
+
   dialog.attron(Curses::A_BOLD)
-  dialog.attron(Curses::A_UNDERLINE)
+
+  dialog.setpos(2, 3)
   dialog.addstr(doneMessage)
+
+  dialog.attron(Curses::A_UNDERLINE)
+
+  dialog.attron(Curses.color_pair(3))
+  dialog.setpos(4, 3)
+  dialog.addstr(continueMessage)
+  dialog.attroff(Curses.color_pair(3))
+
+  dialog.attron(Curses.color_pair(4))
+  dialog.setpos(4, doneMessage.length + 6 - 3 - exitMessage.length)
+  dialog.addstr(exitMessage)
+  dialog.attroff(Curses.color_pair(4))
+
   dialog.attroff(Curses::A_UNDERLINE)
+
   dialog.attroff(Curses::A_BOLD)
   dialog.refresh
+
+  Curses.cbreak
+  Curses.stdscr.keypad(true)
+  Curses.mousemask(Curses::BUTTON1_CLICKED | Curses::BUTTON2_CLICKED |
+                   Curses::BUTTON3_CLICKED | Curses::BUTTON4_CLICKED)
+
+  if Curses.getch == Curses::KEY_MOUSE
+    m = Curses.getmouse
+    if m
+      local_x = m.x - ((Curses.cols / 2) - ((doneMessage.length + 6) / 2))
+      local_y = m.y - ((Curses.lines / 2) - 3)
+
+      if local_y == 4
+        if local_x >= 3 && local_x <= continueMessage.length + 3
+          true
+        elsif local_x >= doneMessage.length + 6 - 3 - exitMessage.length && local_x <= doneMessage.length + 6 - 3
+          Curses.close_screen
+          false
+        end
+      end
+    end
+  end
 end
 
 begin
-  try_times = get_try_times
+  loop do
+    try_times = get_try_times
 
-  calculated_pi = 0.0
-  inside_circle_counter = 0
+    calculated_pi = 0.0
+    inside_circle_counter = 0
 
-  header.myInit
-  footer.myInit
-  graph.myInit
+    mwin.myInit
+    header.myInit
+    footer.myInit
+    graph.myInit
 
-  try_times.times do |index|
-    header.show_str("MC method #{(100 * index / try_times.to_f).to_i}%")
-    header.refresh
+    try_times.times do |index|
+      header.show_str("MC method #{(100 * index / try_times.to_f).to_i}%")
+      header.refresh
 
-    rand_x = rand
-    rand_y = rand
-    point = { x: rand_x * graph_size[:x],
-              y: rand_y * graph_size[:y] }
-    distance = ((rand_x**2) + (rand_y**2))**0.5
-    inside_circle_counter += 1 if 1 >= distance
-    graph.addPoint(point[:x], point[:y], distance)
-    graph.refresh
+      rand_x = rand
+      rand_y = rand
+      point = { x: rand_x * graph_size[:x],
+                y: rand_y * graph_size[:y] }
+      distance = ((rand_x**2) + (rand_y**2))**0.5
+      inside_circle_counter += 1 if 1 >= distance
+      graph.addPoint(point[:x], point[:y], distance)
+      graph.refresh
 
-    calculated_pi = ((inside_circle_counter / (index + 1).to_f) * 4.0)
-    footer.show_str("PI is #{format('%#.010g', calculated_pi)}")
-    footer.refresh
+      calculated_pi = ((inside_circle_counter / (index + 1).to_f) * 4.0)
+      footer.show_str("PI is #{format('%#.010g', calculated_pi)}")
+      footer.refresh
 
+      Curses.refresh
+    end
+    break unless show_done_dialog(mwin, calculated_pi)
+
+    Curses.clear
     Curses.refresh
   end
-  show_done_dialog(mwin, calculated_pi)
-  Curses.getch
 ensure
   Curses.close_screen
 end
