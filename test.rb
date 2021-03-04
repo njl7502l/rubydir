@@ -1,88 +1,166 @@
 require 'curses'
 
-# Curses.resizeterm(56, 100)
-mwin = Curses.init_screen
-mwin.box('|', '-', '+')
+class << mwin = Curses.init_screen
+  def myInit
+    box('|', '-', '+')
 
-begin
-  try_times = 10_000
-
-  score = 0
-  try_times.times do |index|
-    # init #########################
-    headerString = "MC method #{(100 * index / try_times.to_f).to_i}%"
-
-    graphAriaLength = { y: Curses.lines - 6, x: Curses.cols }
-    graphAriaOrigin = { y: 3, x: 0 }
-    graphAriaCenter = { y: graphAriaLength[:y] / 2 + graphAriaOrigin[:y],
-                        x: graphAriaLength[:x] / 2 + graphAriaOrigin[:x] }
-
-    Curses.setpos(0, 0)
-    Curses.addstr("#{Curses.lines}, #{Curses.cols}")
-    graphLength = {
-      x: if (graphAriaLength[:y] * 2) > graphAriaLength[:x]
-           graphAriaLength[:x]
-         else
-           graphAriaLength[:y] * 2
-         end
-    }
-    graphLength.merge!(y: graphLength[:x] / 2)
-
-    graphOrigin = {
-      x: graphAriaCenter[:x] - (graphLength[:x] / 2),
-      y: graphAriaCenter[:y] - (graphLength[:y] / 2)
-    }
     Curses.start_color
     Curses.init_pair(1, Curses::COLOR_RED, Curses::COLOR_BLACK)
-    Curses.init_pair(2, Curses::COLOR_YELLOW, Curses::COLOR_BLACK)
+    Curses.init_pair(2, Curses::COLOR_GREEN, Curses::COLOR_BLACK)
+  end
+end
+mwin.myInit
 
-    # Curses.attrset(Curses.color_pair(16))
-    # calculation #########################
-    rand_x = rand
-    rand_y = rand
-    point = { x: rand_x * graphLength[:x],
-              y: rand_y * graphLength[:y] }
-    distance = (((0.5 - rand_x)**2) + ((0.5 - rand_y)**2))**0.5
+body_size = { y: Curses.lines - 6, x: Curses.cols }
+body_origin = { y: 3, x: 0 }
+body_center = { y: body_size[:y] / 2 + body_origin[:y],
+                x: body_size[:x] / 2 + body_origin[:x] }
+graph_size = {
+  x: if (body_size[:y] * 2) > body_size[:x]
+       body_size[:x]
+     else
+       body_size[:y] * 2
+     end
+}
+graph_size.merge!(y: graph_size[:x] / 2)
+graph_origin = {
+  x: body_center[:x] - (graph_size[:x] / 2),
+  y: body_center[:y] - (graph_size[:y] / 2)
+}
 
-    score += 1 if 0.5 > distance
-    sws2 = "PI is #{format('%#.010g', ((score / index.to_f) * 4.0))}"
+class << header = mwin.subwin(3, Curses.cols, 0, 0)
+  def myInit
+    box('|', '-', '+')
+  end
 
-    graph = mwin.subwin(graphLength[:y], graphLength[:x], graphOrigin[:y], graphOrigin[:x])
-    graph.box('|', '-', '+')
-    graph.setpos(graphLength[:y] / 2, graphLength[:x] / 2) # Curses.cols / 2)
-    graph.attron(Curses.color_pair(1))
-    graph.addstr('+')
-    graph.attroff(Curses.color_pair(1))
-    graph.setpos(point[:y], point[:x])
+  def show_str(str)
+    setpos(1, Curses.cols / 2 - (str.length / 2))
+    addstr(str)
+  end
+end
 
-    graph.attron(Curses.color_pair(2)) if 0.5 > distance
-    graph.addstr('.')
-    graph.attroff(Curses.color_pair(2)) if 0.5 > distance
-    # end
-    graph.refresh
+class << footer = mwin.subwin(3, Curses.cols, Curses.lines - 3, 0)
+  def myInit
+    box('|', '-', '+')
+  end
 
-    header = mwin.subwin(3, Curses.cols, 0, 0)
-    header.box('|', '-', '+')
-    header.setpos(1, Curses.cols / 2 - (headerString.length / 2))
-    header.addstr(headerString)
+  def show_str(str)
+    setpos(1, Curses.cols / 2 - (str.length / 2))
+    addstr(str)
+  end
+end
+
+class << graph = mwin.subwin(graph_size[:y], graph_size[:x], graph_origin[:y], graph_origin[:x])
+  def myInit
+    box('|', '-', '+')
+    setpos(1, 1)
+    attron(Curses.color_pair(1))
+    attron(Curses::A_BOLD)
+    addstr('+')
+    attroff(Curses::A_BOLD)
+    attroff(Curses.color_pair(1))
+  end
+
+  def addPoint(x, y, distance)
+    px = constrain_point(x, 1, maxx - 2)
+    py = constrain_point(y, 1, maxy - 2)
+
+    setpos(py, px)
+
+    attron(get_color(distance))
+    addstr('.')
+    attroff(get_color(distance))
+  end
+
+  private
+
+  def get_color(distance)
+    if 1 >= distance
+      Curses.color_pair(2)
+    else
+      Curses.color_pair(1)
+    end
+  end
+
+  def constrain_point(val, min, max)
+    if val <= min
+      min
+    elsif val >= max
+      max
+    else
+      val
+    end
+  end
+end
+
+def get_try_times
+  prompt_message = 'try times: '
+
+  dialog = Curses::Window.new(
+    3, prompt_message.length + 10,
+    (Curses.lines - 4) / 2, (Curses.cols - prompt_message.length - 10) / 2
+  )
+  dialog.box('|', '-', '+')
+  dialog.setpos(1, 2)
+  dialog.addstr(prompt_message)
+  dialog.setpos(1, prompt_message.length + 2)
+
+  Curses.echo # 入力を表示するモード
+  Curses.curs_set(1) # カーソルの可視化
+
+  str = dialog.getstr # 文字列入力待ち
+
+  Curses.noecho # 入力を非表示に
+  Curses.curs_set(0) # カーソルの非表示
+
+  dialog.close
+  str.to_i
+end
+
+def show_done_dialog(mwin, calculated_pi)
+  doneMessage = "DONE!!! PI is #{format('%#.010g', calculated_pi)}!!"
+
+  dialog = mwin.subwin(5, doneMessage.length + 6, (Curses.lines / 2) - 2, (Curses.cols / 2) - ((doneMessage.length + 6) / 2))
+  dialog.box('#', '#', '#')
+  dialog.setpos(2, 3)
+  dialog.attron(Curses::A_BOLD)
+  dialog.attron(Curses::A_UNDERLINE)
+  dialog.addstr(doneMessage)
+  dialog.attroff(Curses::A_UNDERLINE)
+  dialog.attroff(Curses::A_BOLD)
+  dialog.refresh
+end
+
+begin
+  try_times = get_try_times
+
+  calculated_pi = 0.0
+  inside_circle_counter = 0
+
+  header.myInit
+  footer.myInit
+  graph.myInit
+
+  try_times.times do |index|
+    header.show_str("MC method #{(100 * index / try_times.to_f).to_i}%")
     header.refresh
 
-    footer = mwin.subwin(3, Curses.cols, Curses.lines - 3, 0)
-    footer.box('|', '-', '+')
-    footer.setpos(1, Curses.cols / 2 - (sws2.length / 2))
-    footer.addstr(sws2)
+    rand_x = rand
+    rand_y = rand
+    point = { x: rand_x * graph_size[:x],
+              y: rand_y * graph_size[:y] }
+    distance = ((rand_x**2) + (rand_y**2))**0.5
+    inside_circle_counter += 1 if 1 >= distance
+    graph.addPoint(point[:x], point[:y], distance)
+    graph.refresh
+
+    calculated_pi = ((inside_circle_counter / (index + 1).to_f) * 4.0)
+    footer.show_str("PI is #{format('%#.010g', calculated_pi)}")
     footer.refresh
 
     Curses.refresh
   end
-  doneMessage = "DONE!!! PI is #{format('%#.05g', ((score / try_times.to_f) * 4.0))}!!"
-  dialog = mwin.subwin(5, doneMessage.length + 6, (Curses.lines / 2) - 2, (Curses.cols / 2) - ((doneMessage.length + 6) / 2))
-  dialog.box('#', '#', '+')
-  dialog.setpos(2, 3)
-  dialog.attron(Curses::A_UNDERLINE)
-  dialog.addstr(doneMessage)
-  dialog.attroff(Curses::A_UNDERLINE)
-  dialog.refresh
+  show_done_dialog(mwin, calculated_pi)
   Curses.getch
 ensure
   Curses.close_screen
