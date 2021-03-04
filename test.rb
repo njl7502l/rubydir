@@ -154,19 +154,21 @@ def show_done_dialog(mwin, calculated_pi)
   Curses.mousemask(Curses::BUTTON1_CLICKED | Curses::BUTTON2_CLICKED |
                    Curses::BUTTON3_CLICKED | Curses::BUTTON4_CLICKED)
 
-  if Curses.getch == Curses::KEY_MOUSE
-    m = Curses.getmouse
-    if m
-      local_x = m.x - ((Curses.cols / 2) - ((doneMessage.length + 6) / 2))
-      local_y = m.y - ((Curses.lines / 2) - 3)
+  loop do
+    next unless Curses.getch == Curses::KEY_MOUSE
 
-      if local_y == 4
-        if local_x >= 3 && local_x <= continueMessage.length + 3
-          true
-        elsif local_x >= doneMessage.length + 6 - 3 - exitMessage.length && local_x <= doneMessage.length + 6 - 3
-          Curses.close_screen
-          false
-        end
+    m = Curses.getmouse
+    next unless m
+
+    local_x = m.x - ((Curses.cols / 2) - ((doneMessage.length + 6) / 2))
+    local_y = m.y - ((Curses.lines / 2) - 3)
+
+    if local_y >= 3 && local_y <= 5
+      if local_x >= 3 && local_x <= continueMessage.length + 3
+        return true
+      elsif local_x >= doneMessage.length + 6 - 3 - exitMessage.length && local_x <= doneMessage.length + 6 - 3
+        Curses.close_screen
+        return false
       end
     end
   end
